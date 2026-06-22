@@ -91,11 +91,11 @@ export function calcSettlement(trespass: number): number {
   return Math.round(trespass * 0.1 * 100) / 100;
 }
 export function calcTotal(r: Partial<Record>): number {
-  const vals = [
+  const vals: Array<number | undefined> = [
     r.trespass, r.damages, r.waste, r.constructionWater, r.insurance,
     r.networkConnection, r.tax, r.contractViolation, r.settlement,
   ];
-  return vals.reduce((s, v) => s + (Number(v) || 0), 0);
+  return vals.reduce<number>((s, v) => s + (Number(v) || 0), 0);
 }
 
 export function fmt(n: number | undefined): string {
