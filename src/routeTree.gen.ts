@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ViolationsRouteImport } from './routes/violations'
 import { Route as RecordsRouteImport } from './routes/records'
+import { Route as InputsRouteImport } from './routes/inputs'
 import { Route as IndexRouteImport } from './routes/index'
 
 const ViolationsRoute = ViolationsRouteImport.update({
@@ -23,6 +24,11 @@ const RecordsRoute = RecordsRouteImport.update({
   path: '/records',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InputsRoute = InputsRouteImport.update({
+  id: '/inputs',
+  path: '/inputs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,30 +37,34 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/inputs': typeof InputsRoute
   '/records': typeof RecordsRoute
   '/violations': typeof ViolationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/inputs': typeof InputsRoute
   '/records': typeof RecordsRoute
   '/violations': typeof ViolationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/inputs': typeof InputsRoute
   '/records': typeof RecordsRoute
   '/violations': typeof ViolationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/records' | '/violations'
+  fullPaths: '/' | '/inputs' | '/records' | '/violations'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/records' | '/violations'
-  id: '__root__' | '/' | '/records' | '/violations'
+  to: '/' | '/inputs' | '/records' | '/violations'
+  id: '__root__' | '/' | '/inputs' | '/records' | '/violations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  InputsRoute: typeof InputsRoute
   RecordsRoute: typeof RecordsRoute
   ViolationsRoute: typeof ViolationsRoute
 }
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inputs': {
+      id: '/inputs'
+      path: '/inputs'
+      fullPath: '/inputs'
+      preLoaderRoute: typeof InputsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  InputsRoute: InputsRoute,
   RecordsRoute: RecordsRoute,
   ViolationsRoute: ViolationsRoute,
 }
