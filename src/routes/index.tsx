@@ -34,7 +34,6 @@ function emptyRecord(): Partial<Record> {
   return {
     region: "جمصة",
     branch: "",
-    name: "",
     subscription: "",
     committeeNo: "1",
     violatorName: "",
@@ -127,9 +126,6 @@ function EntryPage() {
               <Field label="الفرع">
                 <input className="field-input" value={form.branch} onChange={(e) => update({ branch: e.target.value })} required />
               </Field>
-              <Field label="الاسم">
-                <input className="field-input" value={form.name} onChange={(e) => update({ name: e.target.value })} required />
-              </Field>
               <Field label="الاشتراك">
                 <input className="field-input" value={form.subscription} onChange={(e) => update({ subscription: e.target.value })} />
               </Field>
@@ -144,7 +140,16 @@ function EntryPage() {
                 <input className="field-input" value={form.violatorName} onChange={(e) => update({ violatorName: e.target.value })} required />
               </Field>
               <Field label="رقم البطاقة">
-                <input className="field-input" value={form.cardNumber} onChange={(e) => update({ cardNumber: e.target.value })} />
+                <input
+                  className="field-input"
+                  inputMode="numeric"
+                  maxLength={14}
+                  value={form.cardNumber}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 14);
+                    update({ cardNumber: v });
+                  }}
+                />
               </Field>
               <Field label="التاريخ">
                 <input type="date" className="field-input" value={form.date} onChange={(e) => update({ date: e.target.value })} />
