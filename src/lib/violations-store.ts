@@ -5,7 +5,6 @@ export interface Record {
   id: string;
   region: string; // المنطقة - auto جمصة
   branch: string; // الفرع
-  name: string; // الاسم
   subscription: string; // الاشتراك
   committeeNo: string; // رقم اللجنة (1-3)
   violatorName: string; // اسم المخالف
