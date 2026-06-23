@@ -1,9 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { type Record, loadRecords } from "@/lib/violations-store";
+import { exportElementToPdf, exportTableToExcel } from "@/lib/export-utils";
+
+type Search = { from?: number; to?: number };
 
 export const Route = createFileRoute("/inputs")({
+  validateSearch: (s: Record<string, unknown> & Search): Search => ({
+    from: s.from ? Number(s.from) : undefined,
+    to: s.to ? Number(s.to) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "تقرير الإدخالات - نظام جمصة" },
@@ -14,36 +21,49 @@ export const Route = createFileRoute("/inputs")({
 });
 
 function InputsReport() {
-  const [records, setRecords] = useState<Record[]>([]);
-  useEffect(() => { setRecords(loadRecords()); }, []);
+  const { from, to } = Route.useSearch();
+  const [all, setAll] = useState<Record[]>([]);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  useEffect(() => { setAll(loadRecords()); }, []);
+
+  const records = useMemo(() => {
+    const f = from && from > 0 ? from - 1 : 0;
+    const t = to && to > 0 ? to : all.length;
+    return all.slice(f, t);
+  }, [all, from, to]);
+
+  const startNo = (from && from > 0 ? from : 1);
 
   return (
     <AppShell>
       <div className="max-w-[1400px] mx-auto px-4 py-6">
         <div className="no-print flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-bold">تقرير الإدخالات (صفحة 4)</h1>
-            <p className="text-sm text-muted-foreground mt-1">جاهز للطباعة - أفقي A4</p>
+            <h1 className="text-2xl font-bold">تقرير الإدخالات</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {from || to ? `النطاق: ${startNo} - ${startNo + records.length - 1}` : "كل السجلات"} ({records.length})
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link to="/records" className="btn-secondary">رجوع للسجلات</Link>
-            <Link to="/violations" className="btn-secondary">تقرير المخالفات</Link>
+            <Link to="/violations" search={{ from, to } as any} className="btn-secondary">تقرير المخالفات</Link>
             <button className="btn-primary" onClick={() => window.print()}>🖨 طباعة</button>
+            <button className="btn-success" onClick={() => tableRef.current && exportTableToExcel(tableRef.current, "تقرير_الإدخالات", "الإدخالات")}>📊 Excel</button>
+            <button className="btn-success" onClick={() => pageRef.current && exportElementToPdf(pageRef.current, "تقرير_الإدخالات", "landscape")}>📄 PDF</button>
           </div>
         </div>
 
-        <div className="section-card print-page">
+        <div ref={pageRef} className="section-card print-page">
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold">الإدخالات - منطقة جمصة</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="report-table">
+            <table ref={tableRef} className="report-table">
               <thead>
                 <tr>
                   <th rowSpan={2}>م</th>
                   <th rowSpan={2}>رقم الحساب</th>
-                  <th rowSpan={2}>رقم الملف</th>
-                  <th rowSpan={2}>كود المشترك</th>
                   <th rowSpan={2}>اسم المشترك</th>
                   <th rowSpan={2}>العنوان</th>
                   <th rowSpan={2}>رقم البطاقة</th>
@@ -52,7 +72,6 @@ function InputsReport() {
                   <th rowSpan={2}>الصرف الصحي</th>
                   <th rowSpan={2}>تاريخ الفتح والتركيب</th>
                   <th rowSpan={2}>رقم القسيمة</th>
-                  <th rowSpan={2}>وصف النشاط</th>
                 </tr>
                 <tr>
                   <th>قطر</th>
@@ -63,9 +82,7 @@ function InputsReport() {
               <tbody>
                 {records.map((r, i) => (
                   <tr key={r.id}>
-                    <td>{i + 1}</td>
-                    <td></td>
-                    <td></td>
+                    <td>{startNo + i}</td>
                     <td></td>
                     <td>{r.violatorName}</td>
                     <td>{r.address}</td>
@@ -77,7 +94,6 @@ function InputsReport() {
                     <td>{r.sewage}</td>
                     <td>{r.installDate}</td>
                     <td>{r.voucherNumber}</td>
-                    <td>{r.activityDescription}</td>
                   </tr>
                 ))}
               </tbody>
