@@ -22,7 +22,7 @@ export const Route = createFileRoute("/violations")({
 
 function ViolationsReport() {
   const { from, to } = Route.useSearch();
-  const [all, setAll] = useState<Record[]>([]);
+  const [all, setAll] = useState<ViolationRecord[]>([]);
   const pageRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   useEffect(() => { setAll(loadRecords()); }, []);
