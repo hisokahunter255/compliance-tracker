@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { type Record, loadRecords, deleteRecord, fmt } from "@/lib/violations-store";
+import { type Record as ViolationRecord, loadRecords, deleteRecord, fmt } from "@/lib/violations-store";
 
 export const Route = createFileRoute("/records")({
   head: () => ({
