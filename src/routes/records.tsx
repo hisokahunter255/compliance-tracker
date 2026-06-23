@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { type Record, loadRecords, deleteRecord, fmt } from "@/lib/violations-store";
 
@@ -16,6 +16,8 @@ export const Route = createFileRoute("/records")({
 function RecordsPage() {
   const router = useRouter();
   const [records, setRecords] = useState<Record[]>([]);
+  const [fromNo, setFromNo] = useState<string>("");
+  const [toNo, setToNo] = useState<string>("");
 
   useEffect(() => { setRecords(loadRecords()); }, []);
 
@@ -27,12 +29,16 @@ function RecordsPage() {
     refresh();
   };
 
-  const handleDistribute = () => {
-    if (records.length === 0) {
-      alert("لا توجد بيانات للتوزيع");
-      return;
-    }
-    router.navigate({ to: "/violations" });
+  const total = records.length;
+  const range = useMemo(() => {
+    const f = Math.max(1, parseInt(fromNo || "1", 10) || 1);
+    const t = Math.min(total, parseInt(toNo || String(total), 10) || total);
+    return { from: f, to: Math.max(f, t) };
+  }, [fromNo, toNo, total]);
+
+  const navigateWithRange = (to: "/violations" | "/inputs") => {
+    if (total === 0) { alert("لا توجد بيانات للتوزيع"); return; }
+    router.navigate({ to, search: { from: range.from, to: range.to } as any });
   };
 
   return (
@@ -40,18 +46,51 @@ function RecordsPage() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-bold">سجلات المخالفات ({records.length})</h1>
+            <h1 className="text-2xl font-bold">سجلات المخالفات ({total})</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              جميع المخالفات المدخلة، اضغط زر التوزيع لإصدار التقارير
+              حدد نطاق المسلسل ثم اضغط زر التوزيع لإصدار التقارير
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/" className="btn-secondary">+ إدخال جديد</Link>
-            <button onClick={handleDistribute} className="btn-success">زر التوزيع ←</button>
           </div>
         </div>
 
-        {records.length === 0 ? (
+        {total > 0 && (
+          <div className="section-card mb-4 flex flex-wrap items-end gap-3">
+            <div className="flex flex-col">
+              <label className="text-xs text-muted-foreground mb-1">من مسلسل</label>
+              <input
+                type="number" min={1} max={total}
+                value={fromNo} placeholder="1"
+                onChange={(e) => setFromNo(e.target.value)}
+                className="input w-28"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs text-muted-foreground mb-1">إلى مسلسل</label>
+              <input
+                type="number" min={1} max={total}
+                value={toNo} placeholder={String(total)}
+                onChange={(e) => setToNo(e.target.value)}
+                className="input w-28"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              النطاق المختار: <strong>{range.from}</strong> إلى <strong>{range.to}</strong> ({range.to - range.from + 1} سجل)
+            </div>
+            <div className="flex gap-2 ms-auto">
+              <button onClick={() => navigateWithRange("/violations")} className="btn-success">
+                توزيع المخالفات ←
+              </button>
+              <button onClick={() => navigateWithRange("/inputs")} className="btn-success">
+                توزيع الإدخالات ←
+              </button>
+            </div>
+          </div>
+        )}
+
+        {total === 0 ? (
           <div className="section-card text-center py-16">
             <p className="text-muted-foreground mb-4">لا توجد سجلات حتى الآن</p>
             <Link to="/" className="btn-primary inline-block">ابدأ بإدخال أول مخالفة</Link>
@@ -74,22 +113,26 @@ function RecordsPage() {
                 </tr>
               </thead>
               <tbody>
-                {records.map((r, i) => (
-                  <tr key={r.id}>
-                    <td>{i + 1}</td>
-                    <td>{r.branch}</td>
-                    <td>{r.violatorName}</td>
-                    <td>{r.subscription}</td>
-                    <td>{r.committeeNo}</td>
-                    <td>{r.violationType}</td>
-                    <td>{r.activity}</td>
-                    <td><strong>{fmt(r.totalViolation)}</strong></td>
-                    <td>{r.date}</td>
-                    <td>
-                      <button onClick={() => handleDelete(r.id)} className="btn-danger">حذف</button>
-                    </td>
-                  </tr>
-                ))}
+                {records.map((r, i) => {
+                  const n = i + 1;
+                  const inRange = n >= range.from && n <= range.to;
+                  return (
+                    <tr key={r.id} style={inRange ? { background: "oklch(0.96 0.04 215)" } : undefined}>
+                      <td>{n}</td>
+                      <td>{r.branch}</td>
+                      <td>{r.violatorName}</td>
+                      <td>{r.subscription}</td>
+                      <td>{r.committeeNo}</td>
+                      <td>{r.violationType}</td>
+                      <td>{r.activity}</td>
+                      <td><strong>{fmt(r.totalViolation)}</strong></td>
+                      <td>{r.date}</td>
+                      <td>
+                        <button onClick={() => handleDelete(r.id)} className="btn-danger">حذف</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
