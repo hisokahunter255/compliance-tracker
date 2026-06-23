@@ -7,7 +7,7 @@ import { exportElementToPdf, exportTableToExcel } from "@/lib/export-utils";
 type Search = { from?: number; to?: number };
 
 export const Route = createFileRoute("/violations")({
-  validateSearch: (s: Record<string, unknown> & Search): Search => ({
+  validateSearch: (s: Record<string, unknown>): Search => ({
     from: s.from ? Number(s.from) : undefined,
     to: s.to ? Number(s.to) : undefined,
   }),
