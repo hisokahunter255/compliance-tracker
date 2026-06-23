@@ -64,7 +64,7 @@ function RecordsPage() {
                 type="number" min={1} max={total}
                 value={fromNo} placeholder="1"
                 onChange={(e) => setFromNo(e.target.value)}
-                className="input w-28"
+                className="field-input w-28"
               />
             </div>
             <div className="flex flex-col">
@@ -73,7 +73,7 @@ function RecordsPage() {
                 type="number" min={1} max={total}
                 value={toNo} placeholder={String(total)}
                 onChange={(e) => setToNo(e.target.value)}
-                className="input w-28"
+                className="field-input w-28"
               />
             </div>
             <div className="text-sm text-muted-foreground">
