@@ -15,7 +15,7 @@ export const Route = createFileRoute("/records")({
 
 function RecordsPage() {
   const router = useRouter();
-  const [records, setRecords] = useState<Record[]>([]);
+  const [records, setRecords] = useState<ViolationRecord[]>([]);
   const [fromNo, setFromNo] = useState<string>("");
   const [toNo, setToNo] = useState<string>("");
 

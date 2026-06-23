@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { type Record, loadRecords } from "@/lib/violations-store";
+import { type Record as ViolationRecord, loadRecords } from "@/lib/violations-store";
 import { exportElementToPdf, exportTableToExcel } from "@/lib/export-utils";
 
 type Search = { from?: number; to?: number };
