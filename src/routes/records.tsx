@@ -18,6 +18,7 @@ function RecordsPage() {
   const [records, setRecords] = useState<ViolationRecord[]>([]);
   const [fromNo, setFromNo] = useState<string>("");
   const [toNo, setToNo] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => { setRecords(loadRecords()); }, []);
 
@@ -90,6 +91,18 @@ function RecordsPage() {
           </div>
         )}
 
+        {total > 0 && (
+          <div className="mb-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="🔍 بحث في الاسم، الاشتراك، الفرع، نوع المخالفة، البطاقة..."
+              className="field-input w-full max-w-xl"
+            />
+          </div>
+        )}
+
         {total === 0 ? (
           <div className="section-card text-center py-16">
             <p className="text-muted-foreground mb-4">لا توجد سجلات حتى الآن</p>
@@ -116,6 +129,9 @@ function RecordsPage() {
                 {records.map((r, i) => {
                   const n = i + 1;
                   const inRange = n >= range.from && n <= range.to;
+                  const q = query.trim().toLowerCase();
+                  if (q && ![r.violatorName, r.subscription, r.branch, r.violationType, r.activity, r.cardNumber, r.committeeNo]
+                    .some((v) => (v || "").toString().toLowerCase().includes(q))) return null;
                   return (
                     <tr key={r.id} style={inRange ? { background: "oklch(0.96 0.04 215)" } : undefined}>
                       <td>{n}</td>
