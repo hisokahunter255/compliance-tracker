@@ -91,6 +91,18 @@ function RecordsPage() {
           </div>
         )}
 
+        {total > 0 && (
+          <div className="mb-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="🔍 بحث في الاسم، الاشتراك، الفرع، نوع المخالفة، البطاقة..."
+              className="field-input w-full max-w-xl"
+            />
+          </div>
+        )}
+
         {total === 0 ? (
           <div className="section-card text-center py-16">
             <p className="text-muted-foreground mb-4">لا توجد سجلات حتى الآن</p>
