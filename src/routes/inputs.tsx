@@ -83,7 +83,7 @@ function InputsReport() {
                 {records.map((r, i) => (
                   <tr key={r.id}>
                     <td>{startNo + i}</td>
-                    <td></td>
+                    <td>{r.subscription}</td>
                     <td>{r.violatorName}</td>
                     <td>{r.address}</td>
                     <td>{r.cardNumber}</td>
