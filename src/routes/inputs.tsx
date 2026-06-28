@@ -64,6 +64,16 @@ function InputsReport() {
           </div>
         </div>
 
+        <div className="no-print mb-3">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="🔍 بحث في الاسم، الحساب، البطاقة، العنوان، القسيمة..."
+            className="field-input w-full max-w-xl"
+          />
+        </div>
+
         <div ref={pageRef} className="section-card print-page">
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold">الإدخالات - منطقة جمصة</h2>
