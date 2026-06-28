@@ -129,6 +129,9 @@ function RecordsPage() {
                 {records.map((r, i) => {
                   const n = i + 1;
                   const inRange = n >= range.from && n <= range.to;
+                  const q = query.trim().toLowerCase();
+                  if (q && ![r.violatorName, r.subscription, r.branch, r.violationType, r.activity, r.cardNumber, r.committeeNo]
+                    .some((v) => (v || "").toString().toLowerCase().includes(q))) return null;
                   return (
                     <tr key={r.id} style={inRange ? { background: "oklch(0.96 0.04 215)" } : undefined}>
                       <td>{n}</td>
