@@ -18,6 +18,7 @@ function RecordsPage() {
   const [records, setRecords] = useState<ViolationRecord[]>([]);
   const [fromNo, setFromNo] = useState<string>("");
   const [toNo, setToNo] = useState<string>("");
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => { setRecords(loadRecords()); }, []);
 
