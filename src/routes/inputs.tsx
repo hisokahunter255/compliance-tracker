@@ -23,15 +23,25 @@ export const Route = createFileRoute("/inputs")({
 function InputsReport() {
   const { from, to } = Route.useSearch();
   const [all, setAll] = useState<ViolationRecord[]>([]);
+  const [query, setQuery] = useState("");
   const pageRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   useEffect(() => { setAll(loadRecords()); }, []);
 
-  const records = useMemo(() => {
+  const ranged = useMemo(() => {
     const f = from && from > 0 ? from - 1 : 0;
     const t = to && to > 0 ? to : all.length;
     return all.slice(f, t);
   }, [all, from, to]);
+
+  const records = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return ranged;
+    return ranged.filter((r) =>
+      [r.subscription, r.violatorName, r.address, r.cardNumber, r.activity, r.voucherNumber, r.branch]
+        .some((v) => (v || "").toString().toLowerCase().includes(q))
+    );
+  }, [ranged, query]);
 
   const startNo = (from && from > 0 ? from : 1);
 
