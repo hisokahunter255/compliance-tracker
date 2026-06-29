@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { type Record as ViolationRecord, loadRecords } from "@/lib/violations-store";
+import { type Record as ViolationRecord, loadRecords, loadHiddenColumns, saveHiddenColumns } from "@/lib/violations-store";
 import { exportElementToPdf, exportTableToExcel } from "@/lib/export-utils";
+import { ColumnSettings, type ColumnDef } from "@/components/ColumnSettings";
 
 type Search = { from?: number; to?: number };
 
@@ -20,13 +21,57 @@ export const Route = createFileRoute("/inputs")({
   component: InputsReport,
 });
 
+const REPORT_ID = "inputs";
+
+const COLUMNS: ColumnDef[] = [
+  { key: "no", label: "م" },
+  { key: "subscription", label: "رقم الحساب" },
+  { key: "violatorName", label: "اسم المشترك" },
+  { key: "address", label: "العنوان" },
+  { key: "cardNumber", label: "رقم البطاقة" },
+  { key: "activity", label: "نوع الحساب" },
+  { key: "meterDiameter", label: "قطر العداد" },
+  { key: "meterBrand", label: "ماركة العداد" },
+  { key: "meterPrepaid", label: "شاسيه/نوع العداد" },
+  { key: "sewage", label: "الصرف الصحي" },
+  { key: "installDate", label: "تاريخ الفتح والتركيب" },
+  { key: "voucherNumber", label: "رقم القسيمة" },
+];
+
+function cellValue(r: ViolationRecord, key: string, no: number): React.ReactNode {
+  switch (key) {
+    case "no": return no;
+    case "subscription": return r.subscription;
+    case "violatorName": return r.violatorName;
+    case "address": return r.address;
+    case "cardNumber": return r.cardNumber;
+    case "activity": return r.activity;
+    case "meterDiameter": return r.meterDiameter;
+    case "meterBrand": return r.meterBrand;
+    case "meterPrepaid": return r.meterPrepaid;
+    case "sewage": return r.sewage;
+    case "installDate": return r.installDate;
+    case "voucherNumber": return r.voucherNumber;
+  }
+  return "";
+}
+
 function InputsReport() {
   const { from, to } = Route.useSearch();
   const [all, setAll] = useState<ViolationRecord[]>([]);
   const [query, setQuery] = useState("");
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const pageRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
-  useEffect(() => { setAll(loadRecords()); }, []);
+  useEffect(() => {
+    setAll(loadRecords());
+    setHidden(loadHiddenColumns(REPORT_ID));
+  }, []);
+
+  const onChangeHidden = (next: Set<string>) => {
+    setHidden(next);
+    saveHiddenColumns(REPORT_ID, next);
+  };
 
   const ranged = useMemo(() => {
     const f = from && from > 0 ? from - 1 : 0;
@@ -44,6 +89,7 @@ function InputsReport() {
   }, [ranged, query]);
 
   const startNo = (from && from > 0 ? from : 1);
+  const visibleCols = COLUMNS.filter((c) => !hidden.has(c.key));
 
   return (
     <AppShell>
@@ -55,7 +101,8 @@ function InputsReport() {
               {from || to ? `النطاق: ${startNo} - ${startNo + records.length - 1}` : "كل السجلات"} ({records.length})
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <ColumnSettings columns={COLUMNS} hidden={hidden} onChange={onChangeHidden} />
             <Link to="/records" className="btn-secondary">رجوع للسجلات</Link>
             <Link to="/violations" search={{ from, to } as any} className="btn-secondary">تقرير المخالفات</Link>
             <button className="btn-primary" onClick={() => window.print()}>🖨 طباعة</button>
@@ -82,45 +129,23 @@ function InputsReport() {
             <table ref={tableRef} className="report-table">
               <thead>
                 <tr>
-                  <th rowSpan={2}>م</th>
-                  <th rowSpan={2}>رقم الحساب</th>
-                  <th rowSpan={2}>اسم المشترك</th>
-                  <th rowSpan={2}>العنوان</th>
-                  <th rowSpan={2}>رقم البطاقة</th>
-                  <th rowSpan={2}>نوع الحساب</th>
-                  <th colSpan={3}>بيانات العداد</th>
-                  <th rowSpan={2}>الصرف الصحي</th>
-                  <th rowSpan={2}>تاريخ الفتح والتركيب</th>
-                  <th rowSpan={2}>رقم القسيمة</th>
-                </tr>
-                <tr>
-                  <th>قطر</th>
-                  <th>ماركة</th>
-                  <th>شاسيه</th>
+                  {visibleCols.map((c) => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {records.map((r, i) => (
                   <tr key={r.id}>
-                    <td>{startNo + i}</td>
-                    <td>{r.subscription}</td>
-                    <td>{r.violatorName}</td>
-                    <td>{r.address}</td>
-                    <td>{r.cardNumber}</td>
-                    <td>{r.activity}</td>
-                    <td>{r.meterDiameter}</td>
-                    <td>{r.meterBrand}</td>
-                    <td>{r.meterPrepaid}</td>
-                    <td>{r.sewage}</td>
-                    <td>{r.installDate}</td>
-                    <td>{r.voucherNumber}</td>
+                    {visibleCols.map((c) => (
+                      <td key={c.key}>{cellValue(r, c.key, startNo + i)}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Signatures */}
           <div className="mt-16 flex items-end justify-between gap-8 text-sm font-semibold">
             <div className="text-center flex-1">
               <div className="border-t-2 border-foreground pt-2 mx-4">مسئول الإدخالات</div>
