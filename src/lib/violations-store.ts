@@ -25,6 +25,8 @@ export interface Record {
   sewageSettlement: number;
   consumptionMonths: string;
   consumption: string;
+  sewageConsumptionMonths: string;
+  sewageConsumption: string;
   settlement: number;
   totalViolation: number;
   date: string;
