@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { type Record as ViolationRecord, loadRecords, fmt } from "@/lib/violations-store";
+import { type Record as ViolationRecord, loadRecords, fmt, loadHiddenColumns, saveHiddenColumns } from "@/lib/violations-store";
 import { exportElementToPdf, exportTableToExcel } from "@/lib/export-utils";
+import { ColumnSettings, type ColumnDef } from "@/components/ColumnSettings";
 
 type Search = { from?: number; to?: number };
 
@@ -20,13 +21,128 @@ export const Route = createFileRoute("/violations")({
   component: ViolationsReport,
 });
 
+const REPORT_ID = "violations";
+
+const COLUMNS: ColumnDef[] = [
+  { key: "no", label: "م" },
+  { key: "region", label: "المنطقة" },
+  { key: "branch", label: "الفرع" },
+  { key: "subscription", label: "الاشتراك" },
+  { key: "committeeNo", label: "رقم اللجنة" },
+  { key: "violatorName", label: "اسم المخالف" },
+  { key: "violationType", label: "نوع المخالفة" },
+  { key: "unitDescription", label: "توصيف الوحدة" },
+  { key: "activity", label: "النشاط" },
+  { key: "trespass", label: "تعدي" },
+  { key: "damages", label: "تلفيات" },
+  { key: "waste", label: "إهدار" },
+  { key: "constructionWater", label: "مياه إنشاءات" },
+  { key: "insurance", label: "تأمين" },
+  { key: "networkConnection", label: "ربط شبكات" },
+  { key: "tax", label: "ضريبة" },
+  { key: "contractViolation", label: "مخ. ش تعاقد" },
+  { key: "consumptionMonths", label: "شهور" },
+  { key: "consumption", label: "الاستهلاك" },
+  { key: "settlement", label: "تصالح" },
+  { key: "totalViolation", label: "إجمالي" },
+  { key: "date", label: "التاريخ" },
+  { key: "notes", label: "ملاحظات" },
+];
+
+/** Expand combined "مياه + صرف" into two display rows */
+type Row = {
+  rec: ViolationRecord;
+  variant: "single" | "water" | "sewage";
+  no: number; // display sequential
+};
+
+function expandRecords(records: ViolationRecord[], startNo: number): Row[] {
+  const rows: Row[] = [];
+  let n = startNo;
+  for (const r of records) {
+    if (r.violationType === "مياه + صرف") {
+      rows.push({ rec: r, variant: "water", no: n++ });
+      rows.push({ rec: r, variant: "sewage", no: n++ });
+    } else {
+      rows.push({ rec: r, variant: "single", no: n++ });
+    }
+  }
+  return rows;
+}
+
+function cellValue(row: Row, key: string): React.ReactNode {
+  const r = row.rec;
+  const v = row.variant;
+  // Per-variant numeric overrides for combined records
+  if (v === "water") {
+    switch (key) {
+      case "violationType": return "مياه";
+      case "trespass": return fmt(r.trespass);
+      case "damages": return fmt(r.damages);
+      case "waste": return fmt(r.waste);
+      case "settlement": return fmt(r.settlement);
+      case "totalViolation": return <strong>{fmt((r.trespass || 0) + (r.damages || 0) + (r.waste || 0) + (r.constructionWater || 0) + (r.insurance || 0) + (r.networkConnection || 0) + (r.tax || 0) + (r.contractViolation || 0) + (r.settlement || 0))}</strong>;
+    }
+  } else if (v === "sewage") {
+    switch (key) {
+      case "violationType": return "صرف";
+      case "trespass": return fmt(r.sewageTrespass);
+      case "damages": return fmt(r.sewageDamages);
+      case "waste": return "";
+      case "constructionWater":
+      case "insurance":
+      case "networkConnection":
+      case "tax":
+      case "contractViolation":
+        return "";
+      case "settlement": return fmt(r.sewageSettlement);
+      case "totalViolation": return <strong>{fmt((r.sewageTrespass || 0) + (r.sewageDamages || 0) + (r.sewageSettlement || 0))}</strong>;
+    }
+  }
+  switch (key) {
+    case "no": return row.no;
+    case "region": return r.region;
+    case "branch": return r.branch;
+    case "subscription": return r.subscription;
+    case "committeeNo": return r.committeeNo;
+    case "violatorName": return r.violatorName;
+    case "violationType": return r.violationType;
+    case "unitDescription": return r.unitDescription;
+    case "activity": return r.activity;
+    case "trespass": return fmt(r.trespass);
+    case "damages": return fmt(r.damages);
+    case "waste": return fmt(r.waste);
+    case "constructionWater": return fmt(r.constructionWater);
+    case "insurance": return fmt(r.insurance);
+    case "networkConnection": return fmt(r.networkConnection);
+    case "tax": return fmt(r.tax);
+    case "contractViolation": return fmt(r.contractViolation);
+    case "consumptionMonths": return r.consumptionMonths;
+    case "consumption": return r.consumption;
+    case "settlement": return fmt(r.settlement);
+    case "totalViolation": return <strong>{fmt(r.totalViolation)}</strong>;
+    case "date": return r.date;
+    case "notes": return r.notes;
+  }
+  return "";
+}
+
 function ViolationsReport() {
   const { from, to } = Route.useSearch();
   const [all, setAll] = useState<ViolationRecord[]>([]);
   const [query, setQuery] = useState("");
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const pageRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
-  useEffect(() => { setAll(loadRecords()); }, []);
+  useEffect(() => {
+    setAll(loadRecords());
+    setHidden(loadHiddenColumns(REPORT_ID));
+  }, []);
+
+  const onChangeHidden = (next: Set<string>) => {
+    setHidden(next);
+    saveHiddenColumns(REPORT_ID, next);
+  };
 
   const ranged = useMemo(() => {
     const f = from && from > 0 ? from - 1 : 0;
@@ -43,24 +159,47 @@ function ViolationsReport() {
     );
   }, [ranged, query]);
 
-  const totals = records.reduce(
-    (acc, r) => {
-      acc.trespass += r.trespass || 0;
-      acc.damages += r.damages || 0;
-      acc.waste += r.waste || 0;
-      acc.constructionWater += r.constructionWater || 0;
-      acc.insurance += r.insurance || 0;
-      acc.networkConnection += r.networkConnection || 0;
-      acc.tax += r.tax || 0;
-      acc.contractViolation += r.contractViolation || 0;
-      acc.settlement += r.settlement || 0;
-      acc.total += r.totalViolation || 0;
+  const startNo = (from && from > 0 ? from : 1);
+  const rows = useMemo(() => expandRecords(records, startNo), [records, startNo]);
+
+  const totals = rows.reduce(
+    (acc, row) => {
+      const r = row.rec;
+      const v = row.variant;
+      if (v === "sewage") {
+        acc.trespass += r.sewageTrespass || 0;
+        acc.damages += r.sewageDamages || 0;
+        acc.settlement += r.sewageSettlement || 0;
+        acc.total += (r.sewageTrespass || 0) + (r.sewageDamages || 0) + (r.sewageSettlement || 0);
+      } else if (v === "water") {
+        acc.trespass += r.trespass || 0;
+        acc.damages += r.damages || 0;
+        acc.waste += r.waste || 0;
+        acc.constructionWater += r.constructionWater || 0;
+        acc.insurance += r.insurance || 0;
+        acc.networkConnection += r.networkConnection || 0;
+        acc.tax += r.tax || 0;
+        acc.contractViolation += r.contractViolation || 0;
+        acc.settlement += r.settlement || 0;
+        acc.total += (r.trespass || 0) + (r.damages || 0) + (r.waste || 0) + (r.constructionWater || 0) + (r.insurance || 0) + (r.networkConnection || 0) + (r.tax || 0) + (r.contractViolation || 0) + (r.settlement || 0);
+      } else {
+        acc.trespass += r.trespass || 0;
+        acc.damages += r.damages || 0;
+        acc.waste += r.waste || 0;
+        acc.constructionWater += r.constructionWater || 0;
+        acc.insurance += r.insurance || 0;
+        acc.networkConnection += r.networkConnection || 0;
+        acc.tax += r.tax || 0;
+        acc.contractViolation += r.contractViolation || 0;
+        acc.settlement += r.settlement || 0;
+        acc.total += r.totalViolation || 0;
+      }
       return acc;
     },
     { trespass: 0, damages: 0, waste: 0, constructionWater: 0, insurance: 0, networkConnection: 0, tax: 0, contractViolation: 0, settlement: 0, total: 0 }
   );
 
-  const startNo = (from && from > 0 ? from : 1);
+  const visibleCols = COLUMNS.filter((c) => !hidden.has(c.key));
 
   return (
     <AppShell>
@@ -72,7 +211,8 @@ function ViolationsReport() {
               {from || to ? `النطاق: ${startNo} - ${startNo + records.length - 1}` : "كل السجلات"} ({records.length})
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <ColumnSettings columns={COLUMNS} hidden={hidden} onChange={onChangeHidden} />
             <Link to="/records" className="btn-secondary">رجوع للسجلات</Link>
             <Link to="/inputs" search={{ from, to } as any} className="btn-secondary">تقرير الإدخالات</Link>
             <button className="btn-primary" onClick={() => window.print()}>🖨 طباعة</button>
@@ -91,8 +231,6 @@ function ViolationsReport() {
           />
         </div>
 
-
-
         <div ref={pageRef} className="section-card print-page">
           <div className="text-center mb-4">
             <h2 className="text-xl font-bold">المخالفات - منطقة جمصة</h2>
@@ -101,75 +239,24 @@ function ViolationsReport() {
             <table ref={tableRef} className="report-table">
               <thead>
                 <tr>
-                  <th>م</th>
-                  <th>المنطقة</th>
-                  <th>الفرع</th>
-                  <th>الاشتراك</th>
-                  <th>رقم اللجنة</th>
-                  <th>اسم المخالف</th>
-                  <th>نوع المخالفة</th>
-                  <th>توصيف الوحدة</th>
-                  <th>النشاط</th>
-                  <th>تعدي</th>
-                  <th>تلفيات</th>
-                  <th>إهدار</th>
-                  <th>مياه إنشاءات</th>
-                  <th>تأمين</th>
-                  <th>ربط شبكات</th>
-                  <th>ضريبة</th>
-                  <th>مخ. ش تعاقد</th>
-                  <th>شهور</th>
-                  <th>الاستهلاك</th>
-                  <th>تصالح</th>
-                  <th>إجمالي</th>
-                  <th>التاريخ</th>
-                  <th>ملاحظات</th>
+                  {visibleCols.map((c) => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {records.map((r, i) => (
-                  <tr key={r.id}>
-                    <td>{startNo + i}</td>
-                    <td>{r.region}</td>
-                    <td>{r.branch}</td>
-                    <td>{r.subscription}</td>
-                    <td>{r.committeeNo}</td>
-                    <td>{r.violatorName}</td>
-                    <td>{r.violationType}</td>
-                    <td>{r.unitDescription}</td>
-                    <td>{r.activity}</td>
-                    <td>{fmt(r.trespass)}</td>
-                    <td>{fmt(r.damages)}</td>
-                    <td>{fmt(r.waste)}</td>
-                    <td>{fmt(r.constructionWater)}</td>
-                    <td>{fmt(r.insurance)}</td>
-                    <td>{fmt(r.networkConnection)}</td>
-                    <td>{fmt(r.tax)}</td>
-                    <td>{fmt(r.contractViolation)}</td>
-                    <td>{r.consumptionMonths}</td>
-                    <td>{r.consumption}</td>
-                    <td>{fmt(r.settlement)}</td>
-                    <td><strong>{fmt(r.totalViolation)}</strong></td>
-                    <td>{r.date}</td>
-                    <td>{r.notes}</td>
+                {rows.map((row, i) => (
+                  <tr
+                    key={`${row.rec.id}-${row.variant}-${i}`}
+                    style={row.variant === "sewage" ? { background: "oklch(0.97 0.03 215)" } : undefined}
+                  >
+                    {visibleCols.map((c) => (
+                      <td key={c.key}>{cellValue(row, c.key)}</td>
+                    ))}
                   </tr>
                 ))}
-                {records.length > 0 && (
-                  <tr style={{ background: "oklch(0.92 0.04 215)", fontWeight: 700 }}>
-                    <td colSpan={9}>الإجمالي</td>
-                    <td>{fmt(totals.trespass)}</td>
-                    <td>{fmt(totals.damages)}</td>
-                    <td>{fmt(totals.waste)}</td>
-                    <td>{fmt(totals.constructionWater)}</td>
-                    <td>{fmt(totals.insurance)}</td>
-                    <td>{fmt(totals.networkConnection)}</td>
-                    <td>{fmt(totals.tax)}</td>
-                    <td>{fmt(totals.contractViolation)}</td>
-                    <td colSpan={2}></td>
-                    <td>{fmt(totals.settlement)}</td>
-                    <td>{fmt(totals.total)}</td>
-                    <td colSpan={2}></td>
-                  </tr>
+                {rows.length > 0 && (
+                  <TotalsRow visibleCols={visibleCols} totals={totals} />
                 )}
               </tbody>
             </table>
@@ -177,5 +264,43 @@ function ViolationsReport() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function TotalsRow({
+  visibleCols,
+  totals,
+}: {
+  visibleCols: ColumnDef[];
+  totals: { trespass: number; damages: number; waste: number; constructionWater: number; insurance: number; networkConnection: number; tax: number; contractViolation: number; settlement: number; total: number };
+}) {
+  const totalMap: { [k: string]: string } = {
+    trespass: fmt(totals.trespass),
+    damages: fmt(totals.damages),
+    waste: fmt(totals.waste),
+    constructionWater: fmt(totals.constructionWater),
+    insurance: fmt(totals.insurance),
+    networkConnection: fmt(totals.networkConnection),
+    tax: fmt(totals.tax),
+    contractViolation: fmt(totals.contractViolation),
+    settlement: fmt(totals.settlement),
+    totalViolation: fmt(totals.total),
+  };
+  // Find first numeric column index to place "الإجمالي" label before it
+  const firstNumericIdx = visibleCols.findIndex((c) => totalMap[c.key] !== undefined);
+  return (
+    <tr style={{ background: "oklch(0.92 0.04 215)", fontWeight: 700 }}>
+      {visibleCols.map((c, idx) => {
+        if (idx === 0) {
+          const span = firstNumericIdx > 0 ? firstNumericIdx : 1;
+          if (firstNumericIdx > 0) {
+            return <td key={c.key} colSpan={span}>الإجمالي</td>;
+          }
+          return <td key={c.key}>الإجمالي</td>;
+        }
+        if (firstNumericIdx > 0 && idx > 0 && idx < firstNumericIdx) return null;
+        return <td key={c.key}>{totalMap[c.key] ?? ""}</td>;
+      })}
+    </tr>
   );
 }
