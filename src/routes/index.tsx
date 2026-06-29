@@ -56,6 +56,8 @@ function emptyRecord(): Partial<Record> {
     sewageSettlement: 0,
     consumptionMonths: "",
     consumption: "",
+    sewageConsumptionMonths: "",
+    sewageConsumption: "",
     settlement: 500,
     date: new Date().toISOString().slice(0, 10),
     address: "",
