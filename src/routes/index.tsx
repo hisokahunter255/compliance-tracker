@@ -296,6 +296,18 @@ function EntryPage() {
                     onChange={(e) => update({ sewageSettlement: +e.target.value })}
                   />
                 </Field>
+                <Field label="عدد شهور الاستهلاك (صرف)">
+                  <input className="field-input"
+                    value={form.sewageConsumptionMonths}
+                    onChange={(e) => update({ sewageConsumptionMonths: e.target.value })}
+                  />
+                </Field>
+                <Field label="الاستهلاك (صرف)">
+                  <input className="field-input"
+                    value={form.sewageConsumption}
+                    onChange={(e) => update({ sewageConsumption: e.target.value })}
+                  />
+                </Field>
               </div>
             </div>
           )}
