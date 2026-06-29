@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type Record,
   type ViolationType,
@@ -9,10 +9,13 @@ import {
   damagesFor,
   wasteFor,
   contractViolationFor,
+  sewageTrespassFor,
+  sewageDamagesFor,
   calcTax,
   calcSettlement,
   calcTotal,
   fmt,
+  isDuplicateSubscription,
 } from "@/lib/violations-store";
 import { AppShell } from "@/components/AppShell";
 
@@ -27,7 +30,7 @@ export const Route = createFileRoute("/")({
 });
 
 const ACTIVITIES = ["تجاري", "منزلي", "أخرى"];
-const VIOLATION_TYPES: ViolationType[] = ["مياه", "صرف", "شروط تعاقد"];
+const VIOLATION_TYPES: ViolationType[] = ["مياه", "مياه + صرف", "صرف", "شروط تعاقد"];
 const SEWAGE_OPTIONS: SewageStatus[] = ["خاضع", "غير خاضع"];
 
 function emptyRecord(): Partial<Record> {
@@ -48,6 +51,9 @@ function emptyRecord(): Partial<Record> {
     networkConnection: 0,
     tax: 0,
     contractViolation: 0,
+    sewageTrespass: 0,
+    sewageDamages: 0,
+    sewageSettlement: 0,
     consumptionMonths: "",
     consumption: "",
     settlement: 500,
@@ -77,6 +83,9 @@ function EntryPage() {
         next.waste = wasteFor(t);
         next.contractViolation = contractViolationFor(t);
         next.settlement = calcSettlement(next.trespass);
+        next.sewageTrespass = sewageTrespassFor(t);
+        next.sewageDamages = sewageDamagesFor(t);
+        next.sewageSettlement = calcSettlement(next.sewageTrespass);
       }
       if (patch.networkConnection !== undefined) {
         next.tax = calcTax(Number(patch.networkConnection) || 0);
@@ -87,8 +96,19 @@ function EntryPage() {
 
   const total = calcTotal(form);
 
+  const duplicate = useMemo(
+    () => isDuplicateSubscription(form.subscription || "", form.branch || ""),
+    [form.subscription, form.branch, savedCount]
+  );
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (duplicate) {
+      const ok = confirm(
+        `⚠️ تنبيه: رقم الحساب "${form.subscription}" موجود مسبقاً في الفرع "${form.branch}".\n\nهل تريد الحفظ رغم ذلك؟`
+      );
+      if (!ok) return;
+    }
     const finalRecord: Record = {
       ...(form as Record),
       id: crypto.randomUUID(),
@@ -102,6 +122,8 @@ function EntryPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const isCombined = form.violationType === "مياه + صرف";
+
   return (
     <AppShell>
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -112,11 +134,10 @@ function EntryPage() {
               عدد المخالفات المحفوظة في هذه الجلسة: {savedCount}
             </p>
           </div>
-          <Link to="/records" className="btn-secondary">عرض السجلات ({savedCount > 0 ? "تحديث" : "0"})</Link>
+          <Link to="/records" className="btn-secondary">عرض السجلات</Link>
         </div>
 
         <form onSubmit={handleSave} className="space-y-5">
-          {/* بيانات أساسية */}
           <div className="section-card">
             <div className="section-title">بيانات المخالف</div>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -127,7 +148,17 @@ function EntryPage() {
                 <input className="field-input" value={form.branch} onChange={(e) => update({ branch: e.target.value })} required />
               </Field>
               <Field label="الاشتراك">
-                <input className="field-input" value={form.subscription} onChange={(e) => update({ subscription: e.target.value })} />
+                <input
+                  className="field-input"
+                  style={duplicate ? { borderColor: "#dc2626", background: "#fef2f2" } : undefined}
+                  value={form.subscription}
+                  onChange={(e) => update({ subscription: e.target.value })}
+                />
+                {duplicate && (
+                  <div className="text-xs mt-1 font-semibold" style={{ color: "#dc2626" }}>
+                    ⚠️ رقم الحساب مكرر في نفس الفرع
+                  </div>
+                )}
               </Field>
               <Field label="رقم اللجنة">
                 <select className="field-input" value={form.committeeNo} onChange={(e) => update({ committeeNo: e.target.value })}>
@@ -160,7 +191,6 @@ function EntryPage() {
             </div>
           </div>
 
-          {/* بيانات المخالفة */}
           <div className="section-card">
             <div className="section-title">تفاصيل المخالفة</div>
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -198,9 +228,8 @@ function EntryPage() {
             </div>
           </div>
 
-          {/* القيم المالية */}
           <div className="section-card">
-            <div className="section-title">المبالغ المالية</div>
+            <div className="section-title">المبالغ المالية{isCombined ? " — مياه" : ""}</div>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
               <Field label="تعدي">
                 <input type="number" step="0.01" className="field-input" value={form.trespass} onChange={(e) => update({ trespass: +e.target.value, settlement: calcSettlement(+e.target.value) })} />
@@ -229,9 +258,6 @@ function EntryPage() {
               <Field label="تصالح (10% من التعدي)">
                 <input type="number" step="0.01" className="field-input" value={form.settlement} onChange={(e) => update({ settlement: +e.target.value })} />
               </Field>
-              <Field label="إجمالي المخالفة">
-                <input className="field-input font-bold" style={{ color: "var(--color-primary)" }} value={fmt(total)} readOnly />
-              </Field>
               <Field label="عدد شهور الاستهلاك">
                 <input className="field-input" value={form.consumptionMonths} onChange={(e) => update({ consumptionMonths: e.target.value })} />
               </Field>
@@ -241,7 +267,39 @@ function EntryPage() {
             </div>
           </div>
 
-          {/* بيانات العداد */}
+          {isCombined && (
+            <div className="section-card" style={{ borderColor: "var(--color-primary)" }}>
+              <div className="section-title">المبالغ المالية — صرف</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <Field label="تعدي (صرف)">
+                  <input type="number" step="0.01" className="field-input"
+                    value={form.sewageTrespass}
+                    onChange={(e) => update({ sewageTrespass: +e.target.value, sewageSettlement: calcSettlement(+e.target.value) })}
+                  />
+                </Field>
+                <Field label="التلفيات (صرف)">
+                  <input type="number" step="0.01" className="field-input"
+                    value={form.sewageDamages}
+                    onChange={(e) => update({ sewageDamages: +e.target.value })}
+                  />
+                </Field>
+                <Field label="تصالح (صرف)">
+                  <input type="number" step="0.01" className="field-input"
+                    value={form.sewageSettlement}
+                    onChange={(e) => update({ sewageSettlement: +e.target.value })}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
+          <div className="section-card">
+            <div className="section-title">الإجمالي</div>
+            <Field label="إجمالي المخالفة (مياه + صرف + باقي البنود)">
+              <input className="field-input font-bold text-lg" style={{ color: "var(--color-primary)" }} value={fmt(total)} readOnly />
+            </Field>
+          </div>
+
           <div className="section-card">
             <div className="section-title">بيانات العداد والصرف الصحي</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
