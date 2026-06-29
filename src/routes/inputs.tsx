@@ -128,11 +128,43 @@ function InputsReport() {
           <div className="overflow-x-auto">
             <table ref={tableRef} className="report-table">
               <thead>
-                <tr>
-                  {visibleCols.map((c) => (
-                    <th key={c.key}>{c.label}</th>
-                  ))}
-                </tr>
+                {(() => {
+                  const meterKeys = ["meterDiameter", "meterBrand", "meterPrepaid"];
+                  const visibleMeter = visibleCols.filter((c) => meterKeys.includes(c.key));
+                  const meterShortLabel: { [k: string]: string } = {
+                    meterDiameter: "قطر",
+                    meterBrand: "ماركة",
+                    meterPrepaid: "شاسيه",
+                  };
+                  let meterRendered = false;
+                  return (
+                    <>
+                      <tr>
+                        {visibleCols.map((c) => {
+                          if (meterKeys.includes(c.key)) {
+                            if (meterRendered) return null;
+                            meterRendered = true;
+                            return (
+                              <th key="meter-group" colSpan={visibleMeter.length}>
+                                بيانات العداد
+                              </th>
+                            );
+                          }
+                          return (
+                            <th key={c.key} rowSpan={2}>
+                              {c.label}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                      <tr>
+                        {visibleMeter.map((c) => (
+                          <th key={c.key}>{meterShortLabel[c.key]}</th>
+                        ))}
+                      </tr>
+                    </>
+                  );
+                })()}
               </thead>
               <tbody>
                 {records.map((r, i) => (
