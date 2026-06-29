@@ -92,6 +92,11 @@ function EntryPage() {
       if (patch.networkConnection !== undefined) {
         next.tax = calcTax(Number(patch.networkConnection) || 0);
       }
+      if (patch.address !== undefined) {
+        if (/مايو/.test(patch.address || "")) {
+          next.sewage = "غير خاضع";
+        }
+      }
       return next;
     });
   };
