@@ -56,6 +56,8 @@ function emptyRecord(): Partial<Record> {
     sewageSettlement: 0,
     consumptionMonths: "",
     consumption: "",
+    sewageConsumptionMonths: "",
+    sewageConsumption: "",
     settlement: 500,
     date: new Date().toISOString().slice(0, 10),
     address: "",
@@ -89,6 +91,11 @@ function EntryPage() {
       }
       if (patch.networkConnection !== undefined) {
         next.tax = calcTax(Number(patch.networkConnection) || 0);
+      }
+      if (patch.address !== undefined) {
+        if (/مايو/.test(patch.address || "")) {
+          next.sewage = "غير خاضع";
+        }
       }
       return next;
     });
@@ -287,6 +294,18 @@ function EntryPage() {
                   <input type="number" step="0.01" className="field-input"
                     value={form.sewageSettlement}
                     onChange={(e) => update({ sewageSettlement: +e.target.value })}
+                  />
+                </Field>
+                <Field label="عدد شهور الاستهلاك (صرف)">
+                  <input className="field-input"
+                    value={form.sewageConsumptionMonths}
+                    onChange={(e) => update({ sewageConsumptionMonths: e.target.value })}
+                  />
+                </Field>
+                <Field label="الاستهلاك (صرف)">
+                  <input className="field-input"
+                    value={form.sewageConsumption}
+                    onChange={(e) => update({ sewageConsumption: e.target.value })}
                   />
                 </Field>
               </div>

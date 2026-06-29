@@ -96,6 +96,8 @@ function cellValue(row: Row, key: string): React.ReactNode {
       case "contractViolation":
         return "";
       case "settlement": return fmt(r.sewageSettlement);
+      case "consumptionMonths": return r.sewageConsumptionMonths;
+      case "consumption": return r.sewageConsumption;
       case "totalViolation": return <strong>{fmt((r.sewageTrespass || 0) + (r.sewageDamages || 0) + (r.sewageSettlement || 0))}</strong>;
     }
   }
