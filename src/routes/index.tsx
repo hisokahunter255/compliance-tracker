@@ -103,12 +103,16 @@ function EntryPage() {
 
   const total = calcTotal(form);
 
-  const duplicate = useMemo(
-    () => isDuplicateSubscription(form.subscription || "", form.branch || ""),
-    [form.subscription, form.branch, savedCount]
-  );
+  const [duplicate, setDuplicate] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    isDuplicateSubscription(form.subscription || "", form.branch || "").then((d) => {
+      if (!cancelled) setDuplicate(d);
+    });
+    return () => { cancelled = true; };
+  }, [form.subscription, form.branch, savedCount]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (duplicate) {
       const ok = confirm(
@@ -123,7 +127,7 @@ function EntryPage() {
       installDate: form.date || "",
       activityDescription: form.unitDescription || "",
     };
-    addRecord(finalRecord);
+    await addRecord(finalRecord);
     setSavedCount((c) => c + 1);
     setForm(emptyRecord());
     window.scrollTo({ top: 0, behavior: "smooth" });
