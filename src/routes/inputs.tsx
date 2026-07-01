@@ -64,7 +64,7 @@ function InputsReport() {
   const pageRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   useEffect(() => {
-    setAll(loadRecords());
+    loadRecords().then(setAll);
     setHidden(loadHiddenColumns(REPORT_ID));
   }, []);
 

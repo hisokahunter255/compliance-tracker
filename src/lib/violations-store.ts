@@ -1,3 +1,5 @@
+import Dexie, { type Table } from "dexie";
+
 export type ViolationType = "مياه" | "صرف" | "شروط تعاقد" | "مياه + صرف";
 export type SewageStatus = "خاضع" | "غير خاضع";
 
@@ -19,7 +21,6 @@ export interface Record {
   networkConnection: number;
   tax: number;
   contractViolation: number;
-  // sewage portion (used when violationType === "مياه + صرف")
   sewageTrespass: number;
   sewageDamages: number;
   sewageSettlement: number;
@@ -40,45 +41,97 @@ export interface Record {
   voucherNumber: string;
   activityDescription: string;
   notes: string;
+  createdAt?: number;
 }
 
-const STORAGE_KEY = "violation_records_v1";
-
-export function loadRecords(): Record[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+/* ================= Dexie (IndexedDB) — SQL-like offline DB ================= */
+class ViolationsDB extends Dexie {
+  records!: Table<Record, string>;
+  constructor() {
+    super("gamasa_violations_db");
+    this.version(1).stores({
+      // primary key + indexed columns for fast filters/search
+      records: "id, subscription, branch, violationType, violatorName, cardNumber, date, createdAt, [branch+subscription]",
+    });
   }
 }
 
-export function saveRecords(records: Record[]) {
+let _db: ViolationsDB | null = null;
+function db(): ViolationsDB {
+  if (!_db) _db = new ViolationsDB();
+  return _db;
+}
+
+const LEGACY_KEY = "violation_records_v1";
+const MIGRATED_FLAG = "violation_records_migrated_v1";
+let migrationPromise: Promise<void> | null = null;
+
+async function ensureMigrated(): Promise<void> {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  if (localStorage.getItem(MIGRATED_FLAG) === "1") return;
+  if (!migrationPromise) {
+    migrationPromise = (async () => {
+      try {
+        const raw = localStorage.getItem(LEGACY_KEY);
+        if (raw) {
+          const arr: Record[] = JSON.parse(raw);
+          if (Array.isArray(arr) && arr.length) {
+            const now = Date.now();
+            const withTs = arr.map((r, i) => ({ ...r, createdAt: r.createdAt ?? now + i }));
+            await db().records.bulkPut(withTs);
+          }
+        }
+        localStorage.setItem(MIGRATED_FLAG, "1");
+      } catch (e) {
+        console.error("Migration failed", e);
+      }
+    })();
+  }
+  return migrationPromise;
 }
 
-export function addRecord(record: Record) {
-  const records = loadRecords();
-  records.push(record);
-  saveRecords(records);
+export async function loadRecords(): Promise<Record[]> {
+  if (typeof window === "undefined") return [];
+  await ensureMigrated();
+  return db().records.orderBy("createdAt").toArray();
 }
 
-export function deleteRecord(id: string) {
-  saveRecords(loadRecords().filter((r) => r.id !== id));
+export async function countRecords(): Promise<number> {
+  if (typeof window === "undefined") return 0;
+  await ensureMigrated();
+  return db().records.count();
 }
 
-/** Check if subscription already exists in same branch */
-export function isDuplicateSubscription(subscription: string, branch: string, excludeId?: string): boolean {
+export async function addRecord(record: Record): Promise<void> {
+  await ensureMigrated();
+  await db().records.put({ ...record, createdAt: record.createdAt ?? Date.now() });
+}
+
+export async function deleteRecord(id: string): Promise<void> {
+  await ensureMigrated();
+  await db().records.delete(id);
+}
+
+export async function clearAllRecords(): Promise<void> {
+  await ensureMigrated();
+  await db().records.clear();
+}
+
+/** Check if subscription already exists in same branch (async, uses compound index) */
+export async function isDuplicateSubscription(
+  subscription: string,
+  branch: string,
+  excludeId?: string
+): Promise<boolean> {
   const s = (subscription || "").trim();
   const b = (branch || "").trim();
   if (!s || !b) return false;
-  return loadRecords().some(
-    (r) => r.id !== excludeId && (r.subscription || "").trim() === s && (r.branch || "").trim() === b
-  );
+  await ensureMigrated();
+  const hits = await db().records.where("[branch+subscription]").equals([b, s]).toArray();
+  return hits.some((r) => r.id !== excludeId);
 }
 
+/* ================= Business rules (sync) ================= */
 export function trespassFor(type: ViolationType): number {
   if (type === "مياه" || type === "مياه + صرف") return 5000;
   if (type === "صرف") return 2000;

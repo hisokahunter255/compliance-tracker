@@ -20,13 +20,12 @@ function RecordsPage() {
   const [toNo, setToNo] = useState<string>("");
   const [query, setQuery] = useState<string>("");
 
-  useEffect(() => { setRecords(loadRecords()); }, []);
+  const refresh = () => { loadRecords().then(setRecords); };
+  useEffect(() => { refresh(); }, []);
 
-  const refresh = () => setRecords(loadRecords());
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("هل تريد حذف هذه المخالفة؟")) return;
-    deleteRecord(id);
+    await deleteRecord(id);
     refresh();
   };
 
